@@ -1,0 +1,15 @@
+{
+  "author": "Sorebit",
+  "name": "top-down-server-proto",
+  "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/Sorebit/top-down-server-proto.git"
+  },
+  "dependencies": {
+    "express": "latest",
+    "ws": "latest"
+  },
+  "devDependencies": {},
+  "optionalDependencies": {}
+}
