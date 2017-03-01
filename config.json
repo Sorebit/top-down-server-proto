@@ -1,7 +1,0 @@
-{
-	"port": 3000,
-	"headers": {
-		"handshake": "0x1",
-		"position": "0x2"
-	}
-}
