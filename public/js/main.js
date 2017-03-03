@@ -1,28 +1,23 @@
 'use strict';
 
-const LITTLE_ENDIAN = checkLittleEndian();
-const HDR_POS = 0x2;
-const HDR_ERR = 0x3;
-const HDR_ERR_FULL = 0x4;
-
-function checkLittleEndian() {
-	var a = new ArrayBuffer(4);
-	var b = new Uint8Array(a);
-	var c = new Uint32Array(a);
-	b[0] = 0xa1;
-	b[1] = 0xb2;
-	b[2] = 0xc3;
-	b[3] = 0xd4;
-	if(c[0] === 0xd4c3b2a1)
-		return true;
-	if(c[0] === 0xa1b2c3d4)
-		return false;
-	throw new Error('Unrecognized endianness');
+// Configuration
+const config = {
+	// Server port
+	port: 3000,
+	// Packet headers
+	headers: {
+		handshake: 0x01,
+		initial_state: 0x10,
+		position: 0x11,
+		error_id: 0xE0,
+		error_full: 0xE1
+	},
+	// Header size in bytes
+	header_size: 1
 };
 
 var host = window.document.location.host.replace(/:.*/, '');
-var port = 3000;
-var ws = new WebSocket('ws://' + host + ':' + port);
+var ws = new WebSocket('ws://' + host + ':' + config.port);
 ws.binaryType = 'arraybuffer';
 
 var can = document.getElementById('result');
@@ -30,6 +25,8 @@ var ctx = can.getContext('2d');
 
 can.width = 400;
 can.height = 400;
+
+var player = new Player();
 
 function textFull(msg) {
 	ctx.clearRect(0, 0, can.width, can.height);
@@ -44,27 +41,41 @@ function textFull(msg) {
 ws.onmessage = function(event) {
 	var data = event.data;
 	var dv = new DataView(data);
-	var header = dv.getInt32(0, LITTLE_ENDIAN);
-	// console.log('Message:', 'byteLength:', dv.byteLength, 'Header:', header);
+	var header = dv.getUint8(0, false);
 
-	if(header === HDR_POS) {
-		var x = dv.getInt32(4, LITTLE_ENDIAN);
-		var y = dv.getInt32(8, LITTLE_ENDIAN);
-		// console.log('x, y:', x, y);
+	if(header === config.headers.position) {
+		var x = dv.getFloat32(config.header_size + 0, false);
+		var y = dv.getFloat32(config.header_size + 4, false);
+
 		ctx.clearRect(0, 0, can.width, can.height);
 		ctx.beginPath();
 		ctx.arc(x, y, 10, 0, 2 * Math.PI, false);
 		ctx.lineWidth = 2;
-		ctx.fillStyle = '#faba4b';
-		ctx.strokeStyle = '#99722e';
+		ctx.fillStyle = player.color;
+		ctx.strokeStyle = '#888';
 		ctx.fill();
 		ctx.stroke();
 		ctx.closePath();
-	} else if(header === HDR_ERR) {
+	} else if(header === config.headers.initial_state) {
+		player.color = getString(dv, config.header_size, config.header_size + 7*2);
+	} else if(header === config.headers.error_id) {
 		textFull('Server error.');
-	} else if(header === HDR_ERR_FULL) {
+	} else if(header === config.headers.error_full) {
 		textFull('Server full.');
 	} else {
 		console.error('Unknown message header:', header);
 	}
+}
+
+function Player() {
+	this.color = "#000";
+}
+
+
+var getString = function(dv, beg, end) {
+	var c = [];
+	for(var i = beg; i < end; i += 2) {
+		c.push(dv.getUint16(i, false));
+	}
+	return String.fromCharCode.apply(null, c);
 }

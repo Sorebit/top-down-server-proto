@@ -1,10 +1,11 @@
 {
 	"port": 3000,
 	"headers": {
-		"handshake": "0x1",
-		"position": "0x2",
-		"error_id": "0x3",
-		"error_full": "0x4"
+		"handshake": "0x01",
+		"initial_state": "0x10",
+		"position": "0x11",
+		"error_full": "0xE1"
 	},
+	"header_size": 1,
 	"max_clients": 4
 }

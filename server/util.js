@@ -16,13 +16,14 @@ Util.logError = function() {
 	console.log(cont);
 }
 
-// Prepend '0' if a is less than @lt
+// Prepend '0' if @a is less than @lt
 Util.prepZero = function(a, lt) {
 	if(!isNaN(a) && a < lt)
 		return '0' + a.toString();
 	return a.toString();
 }
 
+// Date / time string (DD/MM HH:MM:SS)
 Util.dateTime = function() {
 	var d = new Date(Date.now() + 1*60*60*1000);
 	var date = Util.prepZero(d.getDate(), 10);
@@ -33,11 +34,27 @@ Util.dateTime = function() {
 	return date + '/' + month + ' ' + hour + ':' + minute + ':' + second;
 };
 
+// Random in range [@a, @b], floor the value if @floor is true
 Util.rand = function(a, b, floor) {
 	var c; if(a > b) { c = a; a = b; b = c; }
 	var r = Math.random() * (b - a + 1) + a;
 	return (floor) ? Math.floor(r) : r;
 }
 
+// DataView beginning at @beg, ending at @end to string, charCodes stored as Uint16
+Util.getString16 = function(dv, beg, end) {
+	var c = [];
+	for(var i = beg; i < end; i += 2) {
+		c.push(dv.getUint16(i, false));
+	}
+	return String.fromCharCode.apply(null, c);
+}
+
+// Set charCode values of given string for dataview, charCodes stored as Uint16
+Util.setString16 = function(dv, off, str) {
+	for(var i = 0; i < str.length; i++) {
+		dv.setUint16(i * 2 + off, str.charCodeAt(i), false);
+	}
+}
 
 module.exports = Util;

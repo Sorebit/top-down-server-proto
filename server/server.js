@@ -25,10 +25,20 @@ sockets.count = 0;
 // Drop connection of @ws
 function drop(ws, reason) {
 	Util.log('Dropping connection.');
-	const array = new Int32Array(1);
-	array[0] = reason;
-	ws.send(array)
+	var data = new ArrayBuffer(config.header_size);
+	var dv = new DataView(data);
+	dv.setUint8(0, reason, false);
+	ws.send(data)
 	ws.close();
+}
+
+function emit_initial(ws, player) {
+	var data = new ArrayBuffer(config.header_size + 7*2);
+	var dv = new DataView(data);
+	dv.setUint8(0, config.headers.initial_state, false);
+	var color = '#' + player.color.r.toString(16) + player.color.g.toString(16) +  player.color.b.toString(16);
+	Util.setString16(dv, config.header_size, color);
+	ws.send(data);
 }
 
 var wss = new WebSocketServer({server: server});
@@ -60,9 +70,12 @@ wss.on('connection', function (ws) {
 	Util.log('"' + self.id + '"', '(' + self.x, self.y + ') [' + Math.round(self.dx), Math.round(self.dy) + ']');
 	Util.log('Current clients:', sockets.count, '/', config.max_clients);
 
+	emit_initial(ws, self);
+
 	// Test interval that tosses everyone around
 	var testInt = setInterval(function() {
-		const array = new Int32Array(3);
+		var data = new ArrayBuffer(config.header_size + 4 * 2);
+		var dv = new DataView(data);
 
 		if(self.x + self.dx < 0 || self.x + self.dx > 400)
 			self.dx *= -1;
@@ -72,11 +85,11 @@ wss.on('connection', function (ws) {
 		self.x += self.dx;
 		self.y += self.dy;
 
-		array[0] = config.headers.position;
-		array[1] = self.x;
-		array[2] = self.y;
+		dv.setUint8(0, config.headers.position, false);
+		dv.setFloat32(config.header_size + 0, self.x, false);
+		dv.setFloat32(config.header_size + 4, self.y, false);
 
-		ws.send(array);
+		ws.send(data);
 	}, 40);
 
 	// Close connection
@@ -109,8 +122,8 @@ function Player(id) {
 	this.dx = Util.rand(5, 7);
 	this.dy = Util.rand(5, 7);
 	this.color = {
-		r: Util.rand(0, 255, true), 
-		g: Util.rand(0, 255, true),
-		b: Util.rand(0, 255, true)
+		r: Util.rand(140, 240, true), 
+		g: Util.rand(140, 240, true),
+		b: Util.rand(140, 240, true)
 	}
 }
