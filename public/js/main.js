@@ -26,6 +26,10 @@ var ctx = can.getContext('2d');
 can.width = 400;
 can.height = 400;
 
+function Player() {
+	this.color = "#000";
+}
+
 var player = new Player();
 
 function textFull(msg) {
@@ -57,7 +61,7 @@ ws.onmessage = function(event) {
 		ctx.stroke();
 		ctx.closePath();
 	} else if(header === config.headers.initial_state) {
-		player.color = getString(dv, config.header_size, config.header_size + 7*2);
+		player.color = Util.getString(dv, config.header_size, config.header_size + 7*2);
 	} else if(header === config.headers.error_id) {
 		textFull('Server error.');
 	} else if(header === config.headers.error_full) {
@@ -65,17 +69,4 @@ ws.onmessage = function(event) {
 	} else {
 		console.error('Unknown message header:', header);
 	}
-}
-
-function Player() {
-	this.color = "#000";
-}
-
-
-var getString = function(dv, beg, end) {
-	var c = [];
-	for(var i = beg; i < end; i += 2) {
-		c.push(dv.getUint16(i, false));
-	}
-	return String.fromCharCode.apply(null, c);
 }

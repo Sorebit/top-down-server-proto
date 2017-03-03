@@ -14,7 +14,7 @@ app.use(express.static(path.join(__dirname, '/../public')));
 var server = http.createServer(app);
 var serverPort = process.env.PORT || config.port;
 server.listen(serverPort, function() {
-  Util.log('Server listening on port', serverPort);
+	Util.log('Server listening on port', serverPort);
 });
 
 var players = [];
@@ -36,7 +36,7 @@ function emit_initial(ws, player) {
 	var data = new ArrayBuffer(config.header_size + 7*2);
 	var dv = new DataView(data);
 	dv.setUint8(0, config.headers.initial_state, false);
-	var color = '#' + player.color.r.toString(16) + player.color.g.toString(16) +  player.color.b.toString(16);
+	var color = '#' + player.color.r.toString(16) + player.color.g.toString(16) + player.color.b.toString(16);
 	Util.setString16(dv, config.header_size, color);
 	ws.send(data);
 }
@@ -53,7 +53,7 @@ wss.on('connection', function (ws) {
 		return;
 	}
 
-	// Remember  socket
+	// Remember socket
 	if(sockets[id]) {
 		Util.logError('There already exists a socket with id:', id);
 		drop(ws, config.headers.error_id);
@@ -122,7 +122,7 @@ function Player(id) {
 	this.dx = Util.rand(5, 7);
 	this.dy = Util.rand(5, 7);
 	this.color = {
-		r: Util.rand(140, 240, true), 
+		r: Util.rand(140, 240, true),
 		g: Util.rand(140, 240, true),
 		b: Util.rand(140, 240, true)
 	}
