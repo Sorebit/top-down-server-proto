@@ -29,6 +29,7 @@ var ws = new WebSocket('ws://' + host + ':' + Config.port);
 ws.binaryType = 'arraybuffer';
 
 var serverFull = false;
+var serverClosed = false;
 var playerCount = 0;
 
 var can = document.getElementById('result');
@@ -94,10 +95,12 @@ ws.onmessage = function(event) {
 		console.log('A player has disconnected.');
 		playerCount = dv.getUint8(Config.header_size, false);
 		var id = dv.getUint8(Config.header_size + 1, false);
-		delete player[id];
+		delete players[id];
+		console.log('delete', id);
 	// Server error
 	} else if(header === Config.headers.error_server) {
 		textFull('Server error.');
+		serverClosed = true;
 	// Server full
 	} else if(header === Config.headers.error_full) {
 		textFull('Server full.');
@@ -111,9 +114,7 @@ ws.onmessage = function(event) {
 
 ws.onclose = function(event) {
 	console.log('Socket closed.');
-	if(!serverFull) {
-		textFull('Server closed.');
-	}
+	serverClosed = true;
 }
 
 function handleNewPlayer(dv) {
@@ -146,38 +147,52 @@ function handleInitialState(dv) {
 		players[id].x = x;
 		players[id].y = y;
 	}
-
-	textPlayers();
 }
 
 function handlePositionUpdate(dv) {
-	ctx.lineWidth = 2;
-	ctx.clearRect(0, 0, can.width, can.height);
-
 	var count = dv.getUint8(Config.header_size, false);
 	for(var i = 0; i < count; i++) {
 		var off = Config.header_size + 1 + i*9;
 		var id = dv.getUint8(off, false);
 		var x = dv.getFloat32(off + 1 + 0, false);
 		var y = dv.getFloat32(off + 1 + 4, false);
+		players[id].x = x;
+		players[id].y = y;
+	}
+}
+
+function render() {
+	if(serverFull) {
+		textFull('Server full.');
+		return;
+	} else if(serverClosed) {
+		textFull('Server closed.');
+		return;
+	}
+
+	ctx.lineWidth = 2;
+	ctx.clearRect(0, 0, can.width, can.height);
+
+	players.forEach(function each(p) {
 
 		// Draw a lighter circle around player
-		if(id === player.id) {
+		if(p.id === player.id) {
 			ctx.beginPath();
-			ctx.arc(x, y, 18, 0, 2 * Math.PI, false);
+			ctx.arc(p.x, p.y, 18, 0, 2 * Math.PI, false);
 			ctx.strokeStyle = '#aaa';
 			ctx.stroke();
 			ctx.closePath();
 		}
 
 		ctx.beginPath();
-		ctx.arc(x, y, 10, 0, 2 * Math.PI, false);
-		ctx.fillStyle = players[id].color;
+		ctx.arc(p.x, p.y, 10, 0, 2 * Math.PI, false);
+		ctx.fillStyle = p.color;
 		ctx.strokeStyle = '#888';
 		ctx.fill();
 		ctx.stroke();
 		ctx.closePath();
-	}
-
+	});
 	textPlayers();
+	requestAnimationFrame(render);
 }
+render();

@@ -1,6 +1,7 @@
 'use strict';
 
 // Packet setup code seems a little repetitive, I wonder what I could do with that.
+// Implement stopping server loop when noone is connected and starting when someone connects
 
 var Config = require('./config.json');
 var Util = require('./util.js');
@@ -28,9 +29,16 @@ server.listen(serverPort, function() {
 var players = [];
 
 var wss = new WebSocketServer({server: server});
+wss.pause = false;
 
 // Main client handler
 wss.on('connection', function(ws) {
+	// Set server back in running mode
+	if(wss.pause) {
+		wss.pause = false;
+		start();
+	}
+
 	// Remember socket
 	if(wss.clients.length > Config.max_clients) {
 		Util.log('New connection. Server is full');
@@ -81,12 +89,13 @@ wss.send = function(ws, data) {
 			Util.logError(error);
 		}
 	});
+
 }
 
 // Broadcast @data to every socket except @exclude
 wss.broadcast = function(data, exclude) {
 	wss.clients.forEach(function each(client) {
-		if(typeof exclude === 'undefined' || client !== exclude) {
+		if(client !== exclude) {
 			wss.send(client, data);
 		}
 	});
@@ -157,6 +166,19 @@ function start() {
 	Util.log('Starting server loop.');
 	// Test loop that tosses everyone around
 	var update = setInterval(function() {
+		// If there are no clients connected stop the server loop and reset IDs
+		if(wss.clients.length === 0) {
+			if(!Id.updated) {
+				Util.log('Resetting IDs');
+				Id.reset();
+			}
+			if(!wss.pause) {			
+				Util.log('No clients connected. Stop server loop.');
+				wss.pause = true;
+				clearInterval(update);
+			}
+			return;
+		}
 		var data = new ArrayBuffer(Config.header_size + 1 + wss.clients.length * 9);
 		var dv = new DataView(data);
 		dv.setUint8(0, Config.headers.position, false);

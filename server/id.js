@@ -2,14 +2,17 @@ function Id() {
 	var highest = 0;
 	var dropped = [];
 
+	this.updated = true;
+
 	this.next = function() {
 		// If there are no free IDs
 		if(dropped.length === 0) {
 			return highest++;
 		}
-		// Return last dropped id, remove it from list
+		// Return last dropped ID, remove it from list
 		var ret = dropped[dropped.length - 1];
 		dropped.pop();
+		this.updated = false;
 		return ret;
 	}
 
@@ -19,8 +22,15 @@ function Id() {
 			highest--;
 			return;
 		}
-		// Add dropped id to list
+		// Add dropped ID to list
 		dropped.push(id);
+		this.updated = false;
+	}
+
+	this.reset = function() {
+		highest = 0;
+		dropped = [];
+		this.updated = true;
 	}
 };
 
