@@ -3,9 +3,13 @@
 	"headers": {
 		"handshake": "0x01",
 		"initial_state": "0x10",
-		"position": "0x11",
+		"player_new": "0x11",
+		"player_left": "0x12",
+		"position": "0x20",
+		"error_server": "0xE0",
 		"error_full": "0xE1"
 	},
+	"max_clients": 6,
 	"header_size": 1,
-	"max_clients": 4
+	"color_size": 14
 }

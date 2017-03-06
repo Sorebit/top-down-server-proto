@@ -6,7 +6,7 @@ Util.setString16 = function(dv, off, str) {
 	}
 }
 
-Util.getString = function(dv, beg, end) {
+Util.getString16 = function(dv, beg, end) {
 	var c = [];
 	for(var i = beg; i < end; i += 2) {
 		c.push(dv.getUint16(i, false));

@@ -41,7 +41,7 @@ Util.rand = function(a, b, floor) {
 	return (floor) ? Math.floor(r) : r;
 }
 
-// DataView beginning at @beg, ending at @end to string, charCodes stored as Uint16
+// Get string DataView beginning at @beg, ending at @end to string, charCodes stored as Uint16
 Util.getString16 = function(dv, beg, end) {
 	var c = [];
 	for(var i = beg; i < end; i += 2) {
