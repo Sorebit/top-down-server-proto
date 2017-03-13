@@ -1,7 +1,8 @@
 'use strict';
 
-// Packet setup code seems a little repetitive, I wonder what I could do with that.
-// Implement stopping server loop when noone is connected and starting when someone connects
+// Packet setup code seems a little repetitive, I wonder what I could do about that.
+// Errors occur when clients disconnect
+// Send colors in rgb Uint8 (3 bytes) instead of String16 (14 bytes)
 
 var Config = require('./config.json');
 var Util = require('./util.js');
@@ -22,14 +23,14 @@ var server = http.createServer(app);
 var serverPort = process.env.PORT || Config.port;
 server.listen(serverPort, function() {
 	Util.log('Server listening on port', serverPort);
-	start();
 });
 
 // Players are identified by id and have a socket reference (which has a player reference, too)
 var players = [];
 
+// Server is paused by default, because noone is connected while initialization
 var wss = new WebSocketServer({server: server});
-wss.pause = false;
+wss.pause = true;
 
 // Main client handler
 wss.on('connection', function(ws) {
@@ -39,14 +40,15 @@ wss.on('connection', function(ws) {
 		start();
 	}
 
-	// Remember socket
-	if(wss.clients.length > Config.max_clients) {
+	// Don't let more clients in than it is specified in config 
+	if(wss.clients.size > Config.max_clients) {
 		Util.log('New connection. Server is full');
 		wss.drop(ws, Config.headers.error_full);
 		return;
 	}
 
-	Util.log('New connection', '(' + wss.clients.length, '/', Config.max_clients + ')');
+	// If nothing failed create the player
+	Util.log('New connection', '(' + wss.clients.size, '/', Config.max_clients + ')');
 
 	// Construct player
 	var id = Id.next();
@@ -62,7 +64,7 @@ wss.on('connection', function(ws) {
 
 	// Handle connection closing
 	ws.on('close', function() {
-		Util.log('Close connection', '(' + wss.clients.length, '/', Config.max_clients + ')');
+		Util.log('Close connection', '(' + wss.clients.size, '/', Config.max_clients + ')');
 		if(players[id]) {
 			delete players[id];
 		}
@@ -70,12 +72,17 @@ wss.on('connection', function(ws) {
 		broadcastPlayerLeft(self);
 		Id.free(id);
 	});
+	// Handle errors
+	ws.on('error', function(e) {
+		Util.error('WebSocket error occured:');
+		console.error(e);
+	});
 });
 
 // Handle WebSocketServer errors (although I never saw any)
 wss.on('error', function(e) {
+	Util.error('WebSocketServer error occured:');
 	console.error(e);
-	Util.logError(e);
 });
 
 // Send @data to socket @ws with error checking
@@ -85,20 +92,19 @@ wss.send = function(ws, data) {
 	}
 	ws.send(data, function(error) {
 		if(error) {
+			Util.error('WebSocket error occured:');
 			console.error(error);
-			Util.logError(error);
 		}
 	});
-
 }
 
 // Broadcast @data to every socket except @exclude
 wss.broadcast = function(data, exclude) {
-	wss.clients.forEach(function each(client) {
+	for(let client of wss.clients) {
 		if(client !== exclude) {
 			wss.send(client, data);
 		}
-	});
+	};
 };
 
 // Drop connection of @ws, send a header-only (@reason) packet 
@@ -114,24 +120,22 @@ wss.drop = function(ws, reason) {
 
 // Send initial game state to @ws
 function sendInitial(player) {
-	// Packet structue : [header, playerCount, receiverId, id[i], color[i], x[i], y[i]]
-	var data = new ArrayBuffer(Config.header_size + 2 + wss.clients.length*(Config.color_size + 3));
+	// Packet structue : [header, playerCount, receiverId, id[i], x[i], y[i], color[i]]
+	var data = new ArrayBuffer(Config.header_size + 2 + wss.clients.size*(1 + 2 * Config.position_size + Config.color_size));
 	var dv = new DataView(data);
 
 	dv.setUint8(0, Config.headers.initial_state, false); // Header
-	dv.setUint8(Config.header_size + 0, wss.clients.length, false); // playerCount
+	dv.setUint8(Config.header_size + 0, wss.clients.size, false); // playerCount
 	dv.setUint8(Config.header_size + 1, player.id, false); // receiverId
 
 	var i = 0;
-	wss.clients.forEach(function each(client) {
-		var off = Config.header_size + 2 + i * (Config.color_size + 3);
+	var off = Config.header_size + 2;
+	for(let client of wss.clients) {
 		var p = client.player;
-		dv.setUint8(off + 0, p.id, false); // id[i]
-		dv.setUint8(off + 1, p.pos.x, false); // x[i]
-		dv.setUint8(off + 2, p.pos.y, false); // y[i]
-		Util.setString16(dv, off + 3, p.colorString); // color[i]
+		off = Util.setIdPos(dv, off, p); // id, x, y
+		off = Util.setString16(dv, off, p.colorString); // color
 		i++;
-	});
+	};
 
 	wss.send(player.socket, data);
 }
@@ -139,14 +143,15 @@ function sendInitial(player) {
 // Broadcast a player joined to everyone except the player themself
 function broadcastPlayerNew(player) {
 	// Packet structue : [header, playerCount, id, x, y, color]
-	var data = new ArrayBuffer(Config.header_size + 4 + Config.color_size);
+	var data = new ArrayBuffer(Config.header_size + 1 + 1 + 2 * Config.position_size + Config.color_size);
 	var dv = new DataView(data);
 	dv.setUint8(0, Config.headers.player_new, false); // Headet
-	dv.setUint8(Config.header_size + 0, wss.clients.length, false); // playerCount
-	dv.setUint8(Config.header_size + 1, player.id, false); // id
-	dv.setUint8(Config.header_size + 2, player.pos.x, false); // x
-	dv.setUint8(Config.header_size + 3, player.pos.y, false); // y
-	Util.setString16(dv, Config.header_size + 4, player.colorString); // color
+	dv.setUint8(Config.header_size, wss.clients.size, false); // playerCount
+
+	var off = Config.header_size + 1;
+	off = Util.setIdPos(dv, off, player); // id, x, y
+	off = Util.setString16(dv, off, player.colorString); // color
+
 	wss.broadcast(data, player.socket);
 }
 
@@ -156,7 +161,7 @@ function broadcastPlayerLeft(player) {
 	var data = new ArrayBuffer(Config.header_size + 2);
 	var dv = new DataView(data);
 	dv.setUint8(0, Config.headers.player_left);
-	dv.setUint8(Config.header_size + 0, wss.clients.length);
+	dv.setUint8(Config.header_size + 0, wss.clients.size);
 	dv.setUint8(Config.header_size + 1, player.id);
 	wss.broadcast(data, player.socket);
 }
@@ -167,7 +172,7 @@ function start() {
 	// Test loop that tosses everyone around
 	var update = setInterval(function() {
 		// If there are no clients connected stop the server loop and reset IDs
-		if(wss.clients.length === 0) {
+		if(wss.clients.size === 0) {
 			if(!Id.updated) {
 				Util.log('Resetting IDs');
 				Id.reset();
@@ -179,16 +184,20 @@ function start() {
 			}
 			return;
 		}
-		var data = new ArrayBuffer(Config.header_size + 1 + wss.clients.length * 9);
+		// Update players
+		var data = new ArrayBuffer(Config.header_size + 1 + wss.clients.size * (1 + 2 * Config.position_size));
 		var dv = new DataView(data);
 		dv.setUint8(0, Config.headers.position, false);
-		dv.setUint8(1, wss.clients.length, false);
+		dv.setUint8(1, wss.clients.size, false);
 
-		// Update players
 		var i = 0;
-		wss.clients.forEach(function each(client) {
+		for(let client of wss.clients) {
+			if(client.readyState !== WebSocket.OPEN) {
+				Util.error('Socket closed while trying to update');
+				return;
+			}
 			if(typeof client.player === 'undefined') {
-				Util.logError('Undefined player in update. Skipping.');
+				Util.error('Undefined player in update. Skipping.');
 				return;
 			}
 			var p = client.player;
@@ -202,12 +211,10 @@ function start() {
 			p.pos.y += p.dy;
 
 			var off = Config.header_size + 1 + i*9;
-			dv.setUint8(off, p.id, false);
-			dv.setFloat32(off + 1 + 0, p.pos.x, false);
-			dv.setFloat32(off + 1 + 4, p.pos.y, false);
+			Util.setIdPos(dv, off, p);
 			i++;
-		});
+		};
 
 		wss.broadcast(data);
-	}, 1000 / 30);
+	}, Config.tick_interval);
 }

@@ -9,7 +9,9 @@
 		"error_server": "0xE0",
 		"error_full": "0xE1"
 	},
-	"max_clients": 6,
+	"max_clients": 8,
 	"header_size": 1,
-	"color_size": 14
+	"color_size": 14,
+	"position_size": 4,
+	"tick_interval": 40
 }

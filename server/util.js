@@ -1,3 +1,5 @@
+var Config = require('./config.json');
+
 var Util = function(){};
 
 // Log with time and date (incapable of printing full objects, but I don't think it needs to)
@@ -9,7 +11,7 @@ Util.log = function() {
 }
 
 // Log error with time and date
-Util.logError = function() {
+Util.error = function() {
 	var cont = '[' + Util.dateTime() + ' ERROR]';
 	for(var arg = 0; arg < arguments.length; ++arg)
 		cont += ' ' + arguments[arg];
@@ -55,6 +57,15 @@ Util.setString16 = function(dv, off, str) {
 	for(var i = 0; i < str.length; i++) {
 		dv.setUint16(i * 2 + off, str.charCodeAt(i), false);
 	}
+	return off + 2 * str.length;
+}
+
+Util.setIdPos = function(dv, off, p) {
+	dv.setUint8(off, p.id, false);
+	dv.setFloat32(off + 1 + 0 * Config.position_size, p.pos.x, false);
+	dv.setFloat32(off + 1 + 1 * Config.position_size, p.pos.y, false);
+
+	return off + 1 + 2 * Config.position_size;
 }
 
 module.exports = Util;

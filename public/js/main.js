@@ -1,28 +1,6 @@
 'use strict';
 
-// Packet processing code seems a little repetitive, I wonder what I could do with this.
-
-// Configuration
-const Config = {
-	// Server port
-	port: 3000,
-	// Packet headers
-	headers: {
-		handshake: 0x01,
-		initial_state: 0x10,
-		player_new: 0x11,
-		player_left: 0x12,
-		position: 0x20,
-		error_server: 0xE0,
-		error_full: 0xE1
-	},
-	// Header size in bytes
-	header_size: 1,
-	color_size: 14,
-	text_color_fill: '#fff',
-	text_color_stroke: '#444',
-
-};
+// Packet processing code seems a little repetitive, I wonder what I could do about this.
 
 var host = window.document.location.host.replace(/:.*/, '');
 var ws = new WebSocket('ws://' + host + ':' + Config.port);
@@ -51,6 +29,7 @@ function Player(id, color) {
 
 var player;
 var players = [];
+var particles = [];
 
 function textFull(msg) {
 	ctx.lineWidth = 2;
@@ -92,11 +71,10 @@ ws.onmessage = function(event) {
 		handleNewPlayer(dv);
 	// Player left
 	} else if(header === Config.headers.player_left) {
-		console.log('A player has disconnected.');
 		playerCount = dv.getUint8(Config.header_size, false);
 		var id = dv.getUint8(Config.header_size + 1, false);
 		delete players[id];
-		console.log('delete', id);
+		console.log('Player #' + id + ' has disconnected.');
 	// Server error
 	} else if(header === Config.headers.error_server) {
 		textFull('Server error.');
@@ -119,33 +97,35 @@ ws.onclose = function(event) {
 
 function handleNewPlayer(dv) {
 	playerCount = dv.getUint8(Config.header_size, false);
-	var id = dv.getUint8(Config.header_size + 1, false);
-	var x = dv.getUint8(Config.header_size + 2, false);
-	var y = dv.getUint8(Config.header_size + 3, false);
-	var color = Util.getString16(dv, Config.header_size + 4, Config.header_size + 4 + Config.color_size);
-	players[id] = new Player(id, color);
-	players[id].x = x;
-	players[id].y = y;
-	console.log('A player has connected.');
+	var rp = Util.getIdPos(dv, Config.header_size + 1);
+	var color = Util.getString16(dv, rp.off, rp.off + Config.color_size);
+	players[rp.id] = new Player(rp.id, color);
+	players[rp.id].x = rp.x;
+	players[rp.id].y = rp.y;
+	console.log('Player #' + rp.id + ' has connected.');
+
+	particles.push({x: rp.x, y: rp.y, size: 30});
 }
 
 function handleInitialState(dv) {
 	playerCount = dv.getUint8(Config.header_size + 0, false);
-	var pId = dv.getUint8(Config.header_size + 1, false);
+	var recId = dv.getUint8(Config.header_size + 1, false);
+	var off = Config.header_size + 2;
 	for(var i = 0; i < playerCount; i++) {
-		var off = Config.header_size + 2 + i*(Config.color_size + 3);
-		var id = dv.getUint8(off + 0, false);
-		var x = dv.getUint8(off + 1, false);
-		var y = dv.getUint8(off + 2, false);
-		var color = Util.getString16(dv, off + 3, off + 3 + Config.color_size);
-		if(id === pId) {
-			player = new Player(id, color);
-			players[id] = player;
+		// Returned player
+		var rp = Util.getIdPos(dv, off);
+		off = rp.off;
+
+		var color = Util.getString16(dv, off, off + Config.color_size);
+		off += Config.color_size;
+		if(rp.id === recId) {
+			player = new Player(rp.id, color);
+			players[rp.id] = player;
 		} else {
-			players[id] = new Player(id, color);
+			players[rp.id] = new Player(rp.id, color);
 		}
-		players[id].x = x;
-		players[id].y = y;
+		players[rp.id].x = rp.x;
+		players[rp.id].y = rp.y;
 	}
 }
 
@@ -153,11 +133,9 @@ function handlePositionUpdate(dv) {
 	var count = dv.getUint8(Config.header_size, false);
 	for(var i = 0; i < count; i++) {
 		var off = Config.header_size + 1 + i*9;
-		var id = dv.getUint8(off, false);
-		var x = dv.getFloat32(off + 1 + 0, false);
-		var y = dv.getFloat32(off + 1 + 4, false);
-		players[id].x = x;
-		players[id].y = y;
+		var rp = Util.getIdPos(dv, off);
+		players[rp.id].x = rp.x;
+		players[rp.id].y = rp.y;
 	}
 }
 
@@ -170,8 +148,28 @@ function render() {
 		return;
 	}
 
-	ctx.lineWidth = 2;
 	ctx.clearRect(0, 0, can.width, can.height);
+	particles.forEach(function each(p) {
+		console.log(p);
+		ctx.beginPath();
+		ctx.arc(p.x, p.y, p.size, 0, 2 * Math.PI, false);
+		ctx.fillStyle = 'rgba(165, 138, 206, 0.2)';
+		ctx.strokeStyle = 'rgba(73, 56, 99, 0.4)';
+		ctx.stroke();
+		ctx.fill();
+		p.size -= 2;
+		if(p.size < 1) {
+			p.del = true;
+		}
+	});
+
+	for(var i = particles.length - 1; i >= 0; i--) {
+		if(particles[i].del) {
+			particles.splice(i, 1);
+		}
+	}
+
+	ctx.lineWidth = 2;
 
 	players.forEach(function each(p) {
 

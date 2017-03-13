@@ -13,3 +13,13 @@ Util.getString16 = function(dv, beg, end) {
 	}
 	return String.fromCharCode.apply(null, c);
 }
+
+
+Util.getIdPos = function(dv, off) {
+	var ret = {};
+	ret.id = dv.getUint8(off, false);
+	ret.x = dv.getFloat32(off + 1, false);
+	ret.y = dv.getFloat32(off + 1 + Config.position_size, false);
+	ret.off = off + 1 + 2 * Config.position_size;
+	return ret;
+}
