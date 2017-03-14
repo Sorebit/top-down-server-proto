@@ -1,7 +1,6 @@
 'use strict';
 
 // Packet setup code seems a little repetitive, I wonder what I could do about that.
-// Errors occur when clients disconnect
 // Send colors in rgb Uint8 (3 bytes) instead of String16 (14 bytes)
 
 var Config = require('./config.json');
@@ -74,14 +73,13 @@ wss.on('connection', function(ws) {
 	});
 	// Handle errors
 	ws.on('error', function(e) {
-		Util.error('WebSocket error occured:');
-		console.error(e);
+		Util.handleSocketError(e);
 	});
 });
 
 // Handle WebSocketServer errors (although I never saw any)
 wss.on('error', function(e) {
-	Util.error('WebSocketServer error occured:');
+	Util.error('Unhandled WebSocketServer error occured:');
 	console.error(e);
 });
 
@@ -90,11 +88,8 @@ wss.send = function(ws, data) {
 	if(ws.readyState !== WebSocket.OPEN) {
 		return;
 	}
-	ws.send(data, function(error) {
-		if(error) {
-			Util.error('WebSocket error occured:');
-			console.error(error);
-		}
+	ws.send(data, function(e) {
+		Util.handleSocketError(e);
 	});
 }
 
@@ -192,14 +187,15 @@ function start() {
 
 		var i = 0;
 		for(let client of wss.clients) {
+			// Socket closed while trying to update 
 			if(client.readyState !== WebSocket.OPEN) {
-				Util.error('Socket closed while trying to update');
 				return;
 			}
+			// Undefined player in update. Skipping.
 			if(typeof client.player === 'undefined') {
-				Util.error('Undefined player in update. Skipping.');
 				return;
 			}
+
 			var p = client.player;
 
 			if(p.pos.x + p.dx < 0 || p.pos.x + p.dx > 400)

@@ -68,4 +68,16 @@ Util.setIdPos = function(dv, off, p) {
 	return off + 1 + 2 * Config.position_size;
 }
 
+Util.handleSocketError = function(e) {
+	if(!e) {
+		return;
+	}
+	if(e.code === 'EPIPE') {
+		// Util.error('Socket closed when trying to send.');
+	} else {
+		Util.error('Unhandled WebSocket error occured:');
+		console.error(e);
+	}
+}
+
 module.exports = Util;
