@@ -23,3 +23,11 @@ Util.getIdPos = function(dv, off) {
 	ret.off = off + 1 + 2 * Config.position_size;
 	return ret;
 }
+
+Util.color = function(r, g, b) {
+	var c = '#';
+	c += ((r < 16) ? '0' : '') + r.toString(16);
+	c += ((g < 16) ? '0' : '') + g.toString(16);
+	c += ((b < 16) ? '0' : '') + b.toString(16);
+	return c;
+}

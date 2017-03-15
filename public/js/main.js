@@ -98,7 +98,10 @@ ws.onclose = function(event) {
 function handleNewPlayer(dv) {
 	playerCount = dv.getUint8(Config.header_size, false);
 	var rp = Util.getIdPos(dv, Config.header_size + 1);
-	var color = Util.getString16(dv, rp.off, rp.off + Config.color_size);
+	var r = dv.getUint8(rp.off);
+	var g = dv.getUint8(rp.off + 1);
+	var b = dv.getUint8(rp.off + 2);
+	var color = Util.color(r, g, b);
 	players[rp.id] = new Player(rp.id, color);
 	players[rp.id].x = rp.x;
 	players[rp.id].y = rp.y;
@@ -116,8 +119,13 @@ function handleInitialState(dv) {
 		var rp = Util.getIdPos(dv, off);
 		off = rp.off;
 
-		var color = Util.getString16(dv, off, off + Config.color_size);
-		off += Config.color_size;
+		// Color
+		var r = dv.getUint8(off);
+		var g = dv.getUint8(off + 1);
+		var b = dv.getUint8(off + 2);
+		var color = Util.color(r, g, b);
+		off += 3;
+		
 		if(rp.id === recId) {
 			player = new Player(rp.id, color);
 			players[rp.id] = player;
@@ -150,7 +158,6 @@ function render() {
 
 	ctx.clearRect(0, 0, can.width, can.height);
 	particles.forEach(function each(p) {
-		console.log(p);
 		ctx.beginPath();
 		ctx.arc(p.x, p.y, p.size, 0, 2 * Math.PI, false);
 		ctx.fillStyle = 'rgba(165, 138, 206, 0.2)';

@@ -1,12 +1,10 @@
 'use strict';
 
-// Packet setup code seems a little repetitive, I wonder what I could do about that.
-// Send colors in rgb Uint8 (3 bytes) instead of String16 (14 bytes)
-
 var Config = require('./config.json');
-var Util = require('./util.js');
-var Player = require('./player.js');
-var IdHandler = require('./id.js');
+var Util = require('./util');
+var Buffer = require('./buffer');
+var Player = require('./player');
+var IdHandler = require('./id');
 var Id = new IdHandler();
 
 var WebSocket = require('ws');
@@ -106,59 +104,56 @@ wss.broadcast = function(data, exclude) {
 wss.drop = function(ws, reason) {
 	Util.log('Dropping connection.');
 	// Packet structue : [header]
-	var data = new ArrayBuffer(Config.header_size);
-	var dv = new DataView(data);
-	dv.setUint8(0, reason, false);
-	wss.send(ws, data);
+	var packet = new Buffer(Config.header_size);
+	packet.setUint8(reason);
+	wss.send(ws, packet.build());
 	ws.close();
 }
 
 // Send initial game state to @ws
 function sendInitial(player) {
-	// Packet structue : [header, playerCount, receiverId, id[i], x[i], y[i], color[i]]
-	var data = new ArrayBuffer(Config.header_size + 2 + wss.clients.size*(1 + 2 * Config.position_size + Config.color_size));
-	var dv = new DataView(data);
+	// Packet structue : [header, playerCount, receiverId, id[i], x[i], y[i], color.{r, g, b}[i] ]
+	const size = Config.header_size + 2 + wss.clients.size * (4 + 2 * Config.position_size);
+	var packet = new Buffer(size);
 
-	dv.setUint8(0, Config.headers.initial_state, false); // Header
-	dv.setUint8(Config.header_size + 0, wss.clients.size, false); // playerCount
-	dv.setUint8(Config.header_size + 1, player.id, false); // receiverId
+	packet.setUint8(Config.headers.initial_state); // Header
+	packet.setUint8(wss.clients.size); // playerCount
+	packet.setUint8(player.id); // receiverId
 
-	var i = 0;
-	var off = Config.header_size + 2;
 	for(let client of wss.clients) {
-		var p = client.player;
-		off = Util.setIdPos(dv, off, p); // id, x, y
-		off = Util.setString16(dv, off, p.colorString); // color
-		i++;
+		var player = client.player;
+		packet.setUint8(player.id);
+		packet.setFloat32(player.pos.x, player.pos.y);
+		packet.setUint8(player.color.r, player.color.g, player.color.b);
+
 	};
 
-	wss.send(player.socket, data);
+	wss.send(player.socket, packet.build());
 }
 
 // Broadcast a player joined to everyone except the player themself
 function broadcastPlayerNew(player) {
 	// Packet structue : [header, playerCount, id, x, y, color]
-	var data = new ArrayBuffer(Config.header_size + 1 + 1 + 2 * Config.position_size + Config.color_size);
-	var dv = new DataView(data);
-	dv.setUint8(0, Config.headers.player_new, false); // Headet
-	dv.setUint8(Config.header_size, wss.clients.size, false); // playerCount
+	const size = Config.header_size + 5 + 2 * Config.position_size;
+	var packet = new Buffer(size);
+	packet.setUint8(Config.headers.player_new); // Header
+	packet.setUint8(wss.clients.size); // playerCount
 
-	var off = Config.header_size + 1;
-	off = Util.setIdPos(dv, off, player); // id, x, y
-	off = Util.setString16(dv, off, player.colorString); // color
+	packet.setUint8(player.id);
+	packet.setFloat32(player.pos.x, player.pos.y);
+	packet.setUint8(player.color.r, player.color.g, player.color.b);
 
-	wss.broadcast(data, player.socket);
+	wss.broadcast(packet.build(), player.socket);
 }
 
 // Broadcast a player left to everyone except the player themself
 function broadcastPlayerLeft(player) {
 	// Packet structue : [header, playerCount, id]
-	var data = new ArrayBuffer(Config.header_size + 2);
-	var dv = new DataView(data);
-	dv.setUint8(0, Config.headers.player_left);
-	dv.setUint8(Config.header_size + 0, wss.clients.size);
-	dv.setUint8(Config.header_size + 1, player.id);
-	wss.broadcast(data, player.socket);
+	var packet = new Buffer(Config.header_size + 2);
+	packet.setUint8(Config.headers.player_left);
+	packet.setUint8(wss.clients.size);
+	packet.setUint8(player.id);
+	wss.broadcast(packet.build(), player.socket);
 }
 
 // Start server loop
@@ -180,12 +175,14 @@ function start() {
 			return;
 		}
 		// Update players
-		var data = new ArrayBuffer(Config.header_size + 1 + wss.clients.size * (1 + 2 * Config.position_size));
-		var dv = new DataView(data);
-		dv.setUint8(0, Config.headers.position, false);
-		dv.setUint8(1, wss.clients.size, false);
+		// Packet structue : [header, deltaCount, id[i], x[i], y[i]]
+		const size = Config.header_size + 1 + wss.clients.size * (1 + 2 * Config.position_size);
+		var packet = new Buffer(size);
+		packet.setUint8(Config.headers.position);
+		packet.setUint8(wss.clients.size);
 
-		var i = 0;
+		// Later on packets should be build around positions that *have changed*
+
 		for(let client of wss.clients) {
 			// Socket closed while trying to update 
 			if(client.readyState !== WebSocket.OPEN) {
@@ -196,21 +193,21 @@ function start() {
 				return;
 			}
 
-			var p = client.player;
+			var player = client.player;
 
-			if(p.pos.x + p.dx < 0 || p.pos.x + p.dx > 400)
-				p.dx *= -1;
-			if(p.pos.y + p.dy < 0 || p.pos.y + p.dy > 400)
-				p.dy *= -1;
+			if(player.pos.x + player.dx < 0 || player.pos.x + player.dx > 400)
+				player.dx *= -1;
+			if(player.pos.y + player.dy < 0 || player.pos.y + player.dy > 400)
+				player.dy *= -1;
 
-			p.pos.x += p.dx;
-			p.pos.y += p.dy;
+			player.pos.x += player.dx;
+			player.pos.y += player.dy;
 
-			var off = Config.header_size + 1 + i*9;
-			Util.setIdPos(dv, off, p);
-			i++;
+			packet.setUint8(player.id);
+			packet.setFloat32(player.pos.x, player.pos.y);
 		};
 
-		wss.broadcast(data);
+		wss.broadcast(packet.build());
+
 	}, Config.tick_interval);
 }

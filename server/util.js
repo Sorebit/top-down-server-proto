@@ -52,22 +52,6 @@ Util.getString16 = function(dv, beg, end) {
 	return String.fromCharCode.apply(null, c);
 }
 
-// Set charCode values of given string for dataview, charCodes stored as Uint16
-Util.setString16 = function(dv, off, str) {
-	for(var i = 0; i < str.length; i++) {
-		dv.setUint16(i * 2 + off, str.charCodeAt(i), false);
-	}
-	return off + 2 * str.length;
-}
-
-Util.setIdPos = function(dv, off, p) {
-	dv.setUint8(off, p.id, false);
-	dv.setFloat32(off + 1 + 0 * Config.position_size, p.pos.x, false);
-	dv.setFloat32(off + 1 + 1 * Config.position_size, p.pos.y, false);
-
-	return off + 1 + 2 * Config.position_size;
-}
-
 Util.handleSocketError = function(e) {
 	if(!e) {
 		return;

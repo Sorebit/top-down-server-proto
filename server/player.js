@@ -1,5 +1,5 @@
 // Player object
-var Util = require('./util.js');
+var Util = require('./util');
 
 function Player(id, socket) {
 	if(isNaN(id)) {
@@ -24,7 +24,6 @@ function Player(id, socket) {
 		g: Util.rand(140, 240, true),
 		b: Util.rand(140, 240, true)
 	}
-	this.colorString = '#' + this.color.r.toString(16) + this.color.g.toString(16) + this.color.b.toString(16);
 }
 
 module.exports = Player;
