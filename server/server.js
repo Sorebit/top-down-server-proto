@@ -61,7 +61,7 @@ wss.on('connection', function(ws) {
 
 	ws.on('message', function(data, flags) {
 		var ab = Util.bufferToArrayBuffer(data);
-		handleSocketMessage(ab);
+		handleSocketMessage(ws, ab);
 	});
 
 	// Handle connection closing
@@ -160,12 +160,12 @@ function broadcastPlayerLeft(player) {
 	wss.broadcast(packet.build(), player.socket);
 }
 
-function handleSocketMessage(ab) {
+function handleSocketMessage(sender, ab) {
 	var packet = new PacketBuffer(0, ab);
 	const header = packet.getUint8();
 	for(let i in Config.headers) {
 		if(Config.headers[i] == header)
-			console.log(header, i);
+			console.log('[' + sender.player.id + ']', i);
 	}
 }
 
