@@ -19,7 +19,7 @@ can.height = 400;
 function Player(id, color) {
 	if(isNaN(id)) {
 		console.error('Player constructor requires an id.');
-		return;		
+		return;
 	}
 	this.id = id;
 	this.color = color;
@@ -27,6 +27,8 @@ function Player(id, color) {
 	this.y = 0;
 
 	this.keys = {
+		'w': false,
+		's': false,
 		'a': false,
 		'd': false,
 	};
@@ -40,12 +42,13 @@ document.addEventListener('keydown', (e) => {
 	if(typeof(player) === 'undefined'
 	|| typeof(player.keys) === 'undefined')
 		return;
-	if(e.key === 'a' || e.key === 'd') {
+	const keyInd = ['w', 's', 'a', 'd'].indexOf(e.key);
+	if(keyInd >= 0) {
 		if(player.keys[e.key] === false) {
 			player.keys[e.key] = true;
-			console.log('Move: ' + e.key);
+			console.log('Move: ' + e.key + ' ' + e.keyCode);
 			var packet = new PacketBuffer(Config.header_size);
-			packet.setUint8(Config.headers.key_down);
+			packet.setUint8(Config.headers.key_down + keyInd + 1);
 			ws.send(packet.build());
 		}
 	}
@@ -55,11 +58,11 @@ document.addEventListener('keyup', (e) => {
 	if(typeof(player) === 'undefined'
 	|| typeof(player.keys) === 'undefined')
 		return;
-	if(e.key === 'a' || e.key === 'd') {
+	const keyInd = ['w', 's', 'a', 'd'].indexOf(e.key);
+	if(keyInd >= 0) {
 		player.keys[e.key] = false;
-		// ws.send(Config.headers.key_up);
 		var packet = new PacketBuffer(Config.header_size);
-		packet.setUint8(Config.headers.key_up);
+		packet.setUint8(Config.headers.key_up + keyInd + 1);
 		ws.send(packet.build());
 	}
 });

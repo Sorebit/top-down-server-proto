@@ -163,7 +163,10 @@ function broadcastPlayerLeft(player) {
 function handleSocketMessage(ab) {
 	var packet = new PacketBuffer(0, ab);
 	const header = packet.getUint8();
-	console.log(header);
+	for(let i in Config.headers) {
+		if(Config.headers[i] == header)
+			console.log(header, i);
+	}
 }
 
 // Start server loop
