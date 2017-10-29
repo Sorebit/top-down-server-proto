@@ -1,6 +1,6 @@
 'use strict';
 
-// Packet processing code seems a little repetitive, I wonder what I could do about this.
+// e.x [~header, x] means header is already processed
 
 var host = window.document.location.host.replace(/:.*/, '');
 var ws = new WebSocket('ws://' + host + ':' + Config.port);
@@ -25,11 +25,44 @@ function Player(id, color) {
 	this.color = color;
 	this.x = 0;
 	this.y = 0;
+
+	this.keys = {
+		'a': false,
+		'd': false,
+	};
 }
 
 var player;
 var players = [];
 var particles = [];
+
+document.addEventListener('keydown', (e) => {
+	if(typeof(player) === 'undefined'
+	|| typeof(player.keys) === 'undefined')
+		return;
+	if(e.key === 'a' || e.key === 'd') {
+		if(player.keys[e.key] === false) {
+			player.keys[e.key] = true;
+			console.log('Move: ' + e.key);
+			var packet = new PacketBuffer(Config.header_size);
+			packet.setUint8(Config.headers.key_down);
+			ws.send(packet.build());
+		}
+	}
+});
+
+document.addEventListener('keyup', (e) => {
+	if(typeof(player) === 'undefined'
+	|| typeof(player.keys) === 'undefined')
+		return;
+	if(e.key === 'a' || e.key === 'd') {
+		player.keys[e.key] = false;
+		// ws.send(Config.headers.key_up);
+		var packet = new PacketBuffer(Config.header_size);
+		packet.setUint8(Config.headers.key_up);
+		ws.send(packet.build());
+	}
+});
 
 function textFull(msg) {
 	ctx.lineWidth = 2;
@@ -57,22 +90,23 @@ function textPlayers() {
 // Handle server messages
 ws.onmessage = function(event) {
 	var data = event.data;
-	var dv = new DataView(data);
-	var header = dv.getUint8(0, false);
+	var packet = new PacketBuffer(0, data);
+	var header = packet.getUint8();
 
 	// Position update
 	if(header === Config.headers.position) {
-		handlePositionUpdate(dv);
+		handlePositionUpdate(packet);
 	// Initial server state after joining
 	} else if(header === Config.headers.initial_state) {
-		handleInitialState(dv);
+		handleInitialState(packet);
 	// Player connected
 	} else if(header === Config.headers.player_new) {
-		handleNewPlayer(dv);
+		handleNewPlayer(packet);
 	// Player left
 	} else if(header === Config.headers.player_left) {
-		playerCount = dv.getUint8(Config.header_size, false);
-		var id = dv.getUint8(Config.header_size + 1, false);
+		// Packet structue : [~header, playerCount, id]
+		playerCount = packet.getUint8();
+		var id = packet.getUint8();
 		delete players[id];
 		console.log('Player #' + id + ' has disconnected.');
 	// Server error
@@ -95,55 +129,62 @@ ws.onclose = function(event) {
 	serverClosed = true;
 }
 
-function handleNewPlayer(dv) {
-	playerCount = dv.getUint8(Config.header_size, false);
-	var rp = Util.getIdPos(dv, Config.header_size + 1);
-	var r = dv.getUint8(rp.off);
-	var g = dv.getUint8(rp.off + 1);
-	var b = dv.getUint8(rp.off + 2);
-	var color = Util.color(r, g, b);
-	players[rp.id] = new Player(rp.id, color);
-	players[rp.id].x = rp.x;
-	players[rp.id].y = rp.y;
-	console.log('Player #' + rp.id + ' has connected.');
+function handleNewPlayer(packet) {
+	// Packet structue : [~header, playerCount, id, x, y, color]
+	playerCount = packet.getUint8();
+	const id = packet.getUint8();
+	const x = packet.getFloat32();
+	const y = packet.getFloat32();
 
-	particles.push({x: rp.x, y: rp.y, size: 30});
+	const r = packet.getUint8();
+	const g = packet.getUint8();
+	const b = packet.getUint8();
+	const color = Util.color(r, g, b);
+
+	players[id] = new Player(id, color);
+	players[id].x = x;
+	players[id].y = y;
+	console.log('Player #' + id + ' has connected.');
+
+	particles.push({x: x, y: y, size: 30});
 }
 
-function handleInitialState(dv) {
-	playerCount = dv.getUint8(Config.header_size + 0, false);
-	var recId = dv.getUint8(Config.header_size + 1, false);
-	var off = Config.header_size + 2;
+function handleInitialState(packet) {
+	// Packet structue : [~header, playerCount, receiverId, id[i], x[i], y[i], color.{r, g, b}[i] ]
+	playerCount = packet.getUint8();
+	const recId = packet.getUint8();
 	for(var i = 0; i < playerCount; i++) {
 		// Returned player
-		var rp = Util.getIdPos(dv, off);
-		off = rp.off;
+		const id = packet.getUint8();
+		const x = packet.getFloat32();
+		const y = packet.getFloat32();
 
 		// Color
-		var r = dv.getUint8(off);
-		var g = dv.getUint8(off + 1);
-		var b = dv.getUint8(off + 2);
-		var color = Util.color(r, g, b);
-		off += 3;
+		const r = packet.getUint8();
+		const g = packet.getUint8();
+		const b = packet.getUint8();
+		const color = Util.color(r, g, b);
 		
-		if(rp.id === recId) {
-			player = new Player(rp.id, color);
-			players[rp.id] = player;
+		if(id === recId) {
+			player = new Player(id, color);
+			players[id] = player;
 		} else {
-			players[rp.id] = new Player(rp.id, color);
+			players[id] = new Player(id, color);
 		}
-		players[rp.id].x = rp.x;
-		players[rp.id].y = rp.y;
+		players[id].x = x;
+		players[id].y = y;
 	}
 }
 
-function handlePositionUpdate(dv) {
-	var count = dv.getUint8(Config.header_size, false);
-	for(var i = 0; i < count; i++) {
-		var off = Config.header_size + 1 + i*9;
-		var rp = Util.getIdPos(dv, off);
-		players[rp.id].x = rp.x;
-		players[rp.id].y = rp.y;
+function handlePositionUpdate(packet) {
+	// Packet structue : [~header, deltaCount, id[i], x[i], y[i]]
+	var deltaCount = packet.getUint8();
+	for(var i = 0; i < deltaCount; i++) {
+		var id = packet.getUint8();
+		var x = packet.getFloat32();
+		var y = packet.getFloat32();
+		players[id].x = x;
+		players[id].y = y;
 	}
 }
 
@@ -197,7 +238,9 @@ function render() {
 		ctx.stroke();
 		ctx.closePath();
 	});
+
 	textPlayers();
 	requestAnimationFrame(render);
 }
+
 render();

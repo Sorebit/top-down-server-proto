@@ -2,7 +2,7 @@
 
 var Config = require('./config.json');
 var Util = require('./util');
-var Buffer = require('./buffer');
+var PacketBuffer = require('./buffer');
 var Player = require('./player');
 var IdHandler = require('./id');
 var Id = new IdHandler();
@@ -26,7 +26,7 @@ server.listen(serverPort, function() {
 var players = [];
 
 // Server is paused by default, because noone is connected while initialization
-var wss = new WebSocketServer({server: server});
+var wss = new WebSocketServer({ server: server });
 wss.pause = true;
 
 // Main client handler
@@ -58,6 +58,11 @@ wss.on('connection', function(ws) {
 
 	// Broadcast appearance of a new player
 	broadcastPlayerNew(self);
+
+	ws.on('message', function(data, flags) {
+		var ab = Util.bufferToArrayBuffer(data);
+		handleSocketMessage(ab);
+	});
 
 	// Handle connection closing
 	ws.on('close', function() {
@@ -104,7 +109,7 @@ wss.broadcast = function(data, exclude) {
 wss.drop = function(ws, reason) {
 	Util.log('Dropping connection.');
 	// Packet structue : [header]
-	var packet = new Buffer(Config.header_size);
+	var packet = new PacketBuffer(Config.header_size);
 	packet.setUint8(reason);
 	wss.send(ws, packet.build());
 	ws.close();
@@ -114,7 +119,7 @@ wss.drop = function(ws, reason) {
 function sendInitial(player) {
 	// Packet structue : [header, playerCount, receiverId, id[i], x[i], y[i], color.{r, g, b}[i] ]
 	const size = Config.header_size + 2 + wss.clients.size * (4 + 2 * Config.position_size);
-	var packet = new Buffer(size);
+	var packet = new PacketBuffer(size);
 
 	packet.setUint8(Config.headers.initial_state); // Header
 	packet.setUint8(wss.clients.size); // playerCount
@@ -125,7 +130,6 @@ function sendInitial(player) {
 		packet.setUint8(player.id);
 		packet.setFloat32(player.pos.x, player.pos.y);
 		packet.setUint8(player.color.r, player.color.g, player.color.b);
-
 	};
 
 	wss.send(player.socket, packet.build());
@@ -135,7 +139,7 @@ function sendInitial(player) {
 function broadcastPlayerNew(player) {
 	// Packet structue : [header, playerCount, id, x, y, color]
 	const size = Config.header_size + 5 + 2 * Config.position_size;
-	var packet = new Buffer(size);
+	var packet = new PacketBuffer(size);
 	packet.setUint8(Config.headers.player_new); // Header
 	packet.setUint8(wss.clients.size); // playerCount
 
@@ -149,11 +153,17 @@ function broadcastPlayerNew(player) {
 // Broadcast a player left to everyone except the player themself
 function broadcastPlayerLeft(player) {
 	// Packet structue : [header, playerCount, id]
-	var packet = new Buffer(Config.header_size + 2);
+	var packet = new PacketBuffer(Config.header_size + 2);
 	packet.setUint8(Config.headers.player_left);
 	packet.setUint8(wss.clients.size);
 	packet.setUint8(player.id);
 	wss.broadcast(packet.build(), player.socket);
+}
+
+function handleSocketMessage(ab) {
+	var packet = new PacketBuffer(0, ab);
+	const header = packet.getUint8();
+	console.log(header);
 }
 
 // Start server loop
@@ -177,7 +187,7 @@ function start() {
 		// Update players
 		// Packet structue : [header, deltaCount, id[i], x[i], y[i]]
 		const size = Config.header_size + 1 + wss.clients.size * (1 + 2 * Config.position_size);
-		var packet = new Buffer(size);
+		var packet = new PacketBuffer(size);
 		packet.setUint8(Config.headers.position);
 		packet.setUint8(wss.clients.size);
 

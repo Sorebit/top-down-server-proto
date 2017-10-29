@@ -6,6 +6,8 @@
 		"player_new": "0x11",
 		"player_left": "0x12",
 		"position": "0x20",
+		"key_down": "0x30",
+		"key_up": "0x31",
 		"error_server": "0xE0",
 		"error_full": "0xE1"
 	},

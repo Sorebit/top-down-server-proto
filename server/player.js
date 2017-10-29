@@ -15,14 +15,17 @@ function Player(id, socket) {
 
 	this.pos = {
 		x: Util.rand(10, 390, true),
-		y: Util.rand(10, 390, true)
+		y: Util.rand(10, 390, true),
 	};
+	this.dx = 0.0;
+	this.dy = 0.0;
 	this.dx = Util.rand(5, 7) * (Util.rand(0, 1) < 0.5 ? -1 : 1);
 	this.dy = Util.rand(5, 7) * (Util.rand(0, 1) < 0.5 ? -1 : 1);
+	
 	this.color = {
 		r: Util.rand(140, 240, true),
 		g: Util.rand(140, 240, true),
-		b: Util.rand(140, 240, true)
+		b: Util.rand(140, 240, true),
 	}
 }
 

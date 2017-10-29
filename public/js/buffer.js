@@ -1,7 +1,7 @@
 // ArrayBuffer wrapper for more elegant byte setting
 // Setters set values in order they are passed
 
-var Util = require('./util');
+// var Util = require('./util');
 
 function PacketBuffer(size, ab) {
 	if(size === 0 && typeof ab !== 'undefined') {
@@ -115,4 +115,4 @@ PacketBuffer.prototype.build = function() {
 	return this._ab;
 }
 
-module.exports = PacketBuffer;
+// module.exports = PacketBuffer;
