@@ -20,7 +20,7 @@ const Config = {
 		key_up_a: 0x43,
 		key_up_d: 0x44,
 		error_server: 0xE0,
-		error_full: 0xE1
+		error_full: 0xE1,
 	},
 	// Header size in bytes
 	header_size: 1,

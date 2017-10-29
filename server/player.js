@@ -19,9 +19,16 @@ function Player(id, socket) {
 	};
 	this.dx = 0.0;
 	this.dy = 0.0;
-	this.dx = Util.rand(5, 7) * (Util.rand(0, 1) < 0.5 ? -1 : 1);
-	this.dy = Util.rand(5, 7) * (Util.rand(0, 1) < 0.5 ? -1 : 1);
-	
+	// this.dx = Util.rand(5, 7) * (Util.rand(0, 1) < 0.5 ? -1 : 1);
+	// this.dy = Util.rand(5, 7) * (Util.rand(0, 1) < 0.5 ? -1 : 1);
+
+	this.moving = {
+		up: false,
+		down: false,
+		left: false,
+		right: false,
+	}
+
 	this.color = {
 		r: Util.rand(140, 240, true),
 		g: Util.rand(140, 240, true),

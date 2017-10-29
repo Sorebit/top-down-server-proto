@@ -164,9 +164,32 @@ function broadcastPlayerLeft(player) {
 function handleIncomingMessage(sender, ab) {
 	var packet = new PacketBuffer(0, ab);
 	const header = packet.getUint8();
-	for(let i in Config.headers) {
-		if(Config.headers[i] == header)
-			console.log('[' + sender.player.id + ']', i);
+	// for(let i in Config.headers) {
+	// 	if(Config.headers[i] == header)
+	// 		console.log('[' + sender.player.id + ']', i);
+	// }
+	if(header >= 0x31 && header <= 0x34) {
+		const dir = ['w', 's', 'a', 'd'][header - 0x31];
+		if(dir === 'w')
+			sender.player.moving.up = true;
+		else if(dir === 's')
+			sender.player.moving.down = true;
+		else if(dir === 'a')
+			sender.player.moving.left = true;
+		else if(dir === 'd')
+			sender.player.moving.right = true;
+	}
+
+	if(header >= 0x41 && header <= 0x44) {
+		const dir = ['w', 's', 'a', 'd'][header - 0x41];
+		if(dir === 'w')
+			sender.player.moving.up = false;
+		else if(dir === 's')
+			sender.player.moving.down = false;
+		else if(dir === 'a')
+			sender.player.moving.left = false;
+		else if(dir === 'd')
+			sender.player.moving.right = false;
 	}
 }
 
@@ -208,6 +231,18 @@ function start() {
 			}
 
 			var player = client.player;
+
+			player.dx = 0;
+			player.dy = 0;
+
+			if(player.moving.up)
+				player.dy -= 7.0;
+			if(player.moving.down)
+				player.dy += 7.0;
+			if(player.moving.left)
+				player.dx -= 7.0;
+			if(player.moving.right)
+				player.dx += 7.0;
 
 			if(player.pos.x + player.dx < 0 || player.pos.x + player.dx > 400)
 				player.dx *= -1;
