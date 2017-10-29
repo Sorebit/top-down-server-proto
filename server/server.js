@@ -61,7 +61,7 @@ wss.on('connection', function(ws) {
 
 	ws.on('message', function(data, flags) {
 		var ab = Util.bufferToArrayBuffer(data);
-		handleSocketMessage(ws, ab);
+		handleIncomingMessage(ws, ab);
 	});
 
 	// Handle connection closing
@@ -160,7 +160,8 @@ function broadcastPlayerLeft(player) {
 	wss.broadcast(packet.build(), player.socket);
 }
 
-function handleSocketMessage(sender, ab) {
+// Handle message received from client
+function handleIncomingMessage(sender, ab) {
 	var packet = new PacketBuffer(0, ab);
 	const header = packet.getUint8();
 	for(let i in Config.headers) {
